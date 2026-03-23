@@ -8,8 +8,42 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
+/**
+ * Checks if the agent should run in the current hour.
+ * Assumes agent.preferred_time is HH:mm:ss
+ */
+function shouldAgentRunNow(agent) {
+  try {
+    const tz = agent.timezone || "Asia/Dhaka";
+    
+    // Get current time in agent's timezone
+    const nowLocal = new Date().toLocaleString("en-US", { timeZone: tz });
+    const localHour = new Date(nowLocal).getHours();
+    
+    // Extract hour from preferred_time (e.g., "04:20:00" -> 4)
+    const preferredHour = parseInt(agent.preferred_time.split(":")[0], 10);
+    
+    console.log(`   🕒 Time Check [${agent.title}]: Current Local Hour: ${localHour}, Preferred: ${preferredHour} (${tz})`);
+    
+    return localHour === preferredHour;
+  } catch (e) {
+    console.error(`   ❌ Timezone error for ${agent.title}:`, e.message);
+    return true; // Fallback to run if timezone is invalid
+  }
+}
+
 async function runAgent(agent) {
   console.log(`\n🤖 Processing Agent: "${agent.title}"`);
+  
+  // Only check time if we are running via automated scheduler (cron)
+  // If run-monitor is triggered manually (workflow_dispatch), we run all active.
+  const isManual = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' || process.env.FORCE_RUN === 'true';
+  
+  if (!isManual && !shouldAgentRunNow(agent)) {
+    console.log(`   ⏭️ Not the preferred time yet. Skipping.`);
+    return;
+  }
+
   console.log(`   📧 Target: ${agent.recipient_email}`);
   console.log(`   🏷️ Queries: ${agent.queries.join(", ")}`);
 
@@ -17,73 +51,54 @@ async function runAgent(agent) {
     const videos = await getTopAIVideos(agent.queries, agent.max_videos || 10);
 
     if (!videos || videos.length === 0) {
-      console.log(`   ⚠️ No videos found for "${agent.title}". Skipping.`);
-      // Still update success since the search itself didn't fail
+      console.log(`   ⚠️ No videos found for "${agent.title}". Skipping email.`);
       await supabase
         .from("monitoring_configs")
-        .update({ 
-          last_run_at: new Date().toISOString(),
-          last_run_status: 'success' 
-        })
+        .update({ last_run_at: new Date().toISOString(), last_run_status: 'success' })
         .eq("id", agent.id);
       return;
     }
 
     await sendEmail(videos, agent.recipient_email, agent.title);
     
-    // Update Supabase with success
     await supabase
       .from("monitoring_configs")
-      .update({ 
-        last_run_at: new Date().toISOString(),
-        last_run_status: 'success' 
-      })
+      .update({ last_run_at: new Date().toISOString(), last_run_status: 'success' })
       .eq("id", agent.id);
 
     console.log(`   ✅ Agent "${agent.title}" complete.`);
   } catch (error) {
     console.error(`   ❌ Error processing agent "${agent.title}":`, error.message);
-    
-    // Update Supabase with error
     await supabase
       .from("monitoring_configs")
-      .update({ 
-        last_run_at: new Date().toISOString(),
-        last_run_status: 'error' 
-      })
+      .update({ last_run_at: new Date().toISOString(), last_run_status: 'error' })
       .eq("id", agent.id);
   }
 }
 
 async function main() {
-  console.log("🚀 YouTube AI SaaS — Starting Batch Monitor Run...");
+  console.log("🚀 YouTube AI SaaS — Starting Hourly Monitor Run...");
   console.log("=".repeat(50));
 
   try {
-    // Step 1: Fetch all active monitoring configs
     const { data: agents, error } = await supabase
       .from("monitoring_configs")
       .select("*")
       .eq("is_active", true);
 
     if (error) throw error;
-
     if (!agents || agents.length === 0) {
-      console.log("ℹ️ No active agents found in the database.");
+      console.log("ℹ️ No active agents found.");
       return;
     }
 
-    console.log(`📦 Found ${agents.length} active agents to process.`);
-
-    // Step 2: Run them sequentially (to avoid rate limits/quota issues)
     for (const agent of agents) {
       await runAgent(agent);
     }
 
-    console.log("\n✅ All agents processed!");
-    console.log("=".repeat(50));
+    console.log("\n✅ Batch run complete!");
   } catch (error) {
-    console.error("\n❌ Fatal Error in Batch Run:");
+    console.error("\n❌ Fatal Error:");
     console.error(error.message || error);
     process.exit(1);
   }
