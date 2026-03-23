@@ -111,8 +111,8 @@ function buildEmailHTML(videos) {
           <tr>
             <td style="padding: 24px 40px 8px 40px;">
               <p style="margin: 0; color: #94a3b8; font-size: 14px; line-height: 1.6;">
-                Here are the <strong style="color: #e2e8f0;">Top 10 AI Videos</strong> from the last 48 hours,
-                ranked by view count across topics like AI agents, automation, app & game development.
+                Here are the <strong style="color: #e2e8f0;">Top 15 AI Videos</strong> from the last 48 hours,
+                ranked by view count across agents, no-code, web dev, UI/UX, and latest AI tools.
               </p>
             </td>
           </tr>
@@ -161,7 +161,7 @@ async function sendEmail(videos) {
   const info = await transporter.sendMail({
     from: `"YouTube AI Monitor 🤖" <${process.env.GMAIL_USER}>`,
     to: process.env.TO_EMAIL,
-    subject: `🔥 Top 10 AI Videos Today — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+    subject: `🔥 Top 15 AI Videos Today — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
     html,
   });
 

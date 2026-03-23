@@ -3,14 +3,20 @@ const axios = require("axios");
 const API_KEY = process.env.YOUTUBE_API_KEY;
 const BASE_URL = "https://www.googleapis.com/youtube/v3";
 
-// Topics to search for
+/**
+ * Optimized Category List (8 Categories)
+ */
 const SEARCH_QUERIES = [
-  "AI agent tutorial",
-  "AI app development",
-  "AI game development",
-  "AI automation tools",
-  "build app using AI",
-  "no code AI agent",
+  "AI agent tutorial 2026",
+  "autonomous agents LangChain CrewAI",
+  "no code ai automation Zapier n8n",
+  "workflow automation email bots scraping",
+  "AI-assisted coding Cursor AI",
+  "modern website UI design inspiration",
+  "best AI tools this week",
+  "AI video generator tools 2026",
+  "new SaaS tools 2026",
+  "hidden gems websites 2026",
 ];
 
 /**
@@ -24,22 +30,26 @@ function get48HoursAgoTimestamp() {
 
 /**
  * Searches YouTube for a single query and returns raw video items.
- * Uses order=date and filters to the last 48 hours.
  */
 async function searchVideos(query, publishedAfter) {
   const url = `${BASE_URL}/search`;
-  const response = await axios.get(url, {
-    params: {
-      key: API_KEY,
-      q: query,
-      part: "snippet",
-      type: "video",
-      order: "date",
-      maxResults: 50,
-      publishedAfter,
-    },
-  });
-  return response.data.items;
+  try {
+    const response = await axios.get(url, {
+      params: {
+        key: API_KEY,
+        q: query,
+        part: "snippet",
+        type: "video",
+        order: "viewCount", // Changed to viewCount for better relevance in initial search
+        maxResults: 25, // Lowered per query to stay within quota but search more queries
+        publishedAfter,
+      },
+    });
+    return response.data.items || [];
+  } catch (error) {
+    console.error(`   ❌ Failed search for "${query}":`, error.response?.data?.error?.message || error.message);
+    return [];
+  }
 }
 
 /**
@@ -59,7 +69,7 @@ async function fetchVideoStats(videoIds) {
 
 /**
  * Main function: searches all queries, deduplicates, fetches stats,
- * sorts by viewCount descending, and returns the top 10 videos.
+ * sorts by viewCount descending, and returns the top 15 videos.
  */
 async function getTopAIVideos() {
   const publishedAfter = get48HoursAgoTimestamp();
@@ -79,6 +89,7 @@ async function getTopAIVideos() {
   // Step 3: Deduplicate by videoId
   const seen = new Set();
   const uniqueVideos = flatResults.filter((item) => {
+    if (!item.id || !item.id.videoId) return false;
     const id = item.id.videoId;
     if (seen.has(id)) return false;
     seen.add(id);
@@ -112,13 +123,13 @@ async function getTopAIVideos() {
     };
   });
 
-  // Step 6: Sort by viewCount descending and take top 10
-  const top10 = enriched
+  // Step 6: Sort by viewCount descending and take top 15
+  const top15 = enriched
     .sort((a, b) => b.viewCount - a.viewCount)
-    .slice(0, 10);
+    .slice(0, 15);
 
-  console.log(`🏆 Top 10 videos by view count selected.`);
-  return top10;
+  console.log(`🏆 Top 15 videos by view count selected.`);
+  return top15;
 }
 
 module.exports = { getTopAIVideos };
