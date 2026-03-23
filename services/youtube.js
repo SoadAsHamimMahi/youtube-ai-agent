@@ -4,22 +4,6 @@ const API_KEY = process.env.YOUTUBE_API_KEY;
 const BASE_URL = "https://www.googleapis.com/youtube/v3";
 
 /**
- * Optimized Category List (8 Categories)
- */
-const SEARCH_QUERIES = [
-  "AI agent tutorial 2026",
-  "autonomous agents LangChain CrewAI",
-  "no code ai automation Zapier n8n",
-  "workflow automation email bots scraping",
-  "AI-assisted coding Cursor AI",
-  "modern website UI design inspiration",
-  "best AI tools this week",
-  "AI video generator tools 2026",
-  "new SaaS tools 2026",
-  "hidden gems websites 2026",
-];
-
-/**
  * Returns an ISO 8601 timestamp for 48 hours ago (UTC).
  */
 function get48HoursAgoTimestamp() {
@@ -40,8 +24,8 @@ async function searchVideos(query, publishedAfter) {
         q: query,
         part: "snippet",
         type: "video",
-        order: "viewCount", // Changed to viewCount for better relevance in initial search
-        maxResults: 25, // Lowered per query to stay within quota but search more queries
+        order: "viewCount",
+        maxResults: 25,
         publishedAfter,
       },
     });
@@ -68,25 +52,23 @@ async function fetchVideoStats(videoIds) {
 }
 
 /**
- * Main function: searches all queries, deduplicates, fetches stats,
- * sorts by viewCount descending, and returns the top 15 videos.
+ * Main function: searches queries, deduplicates, fetches stats,
+ * and returns top N videos.
  */
-async function getTopAIVideos() {
+async function getTopAIVideos(queries, maxResults = 10) {
   const publishedAfter = get48HoursAgoTimestamp();
   console.log(`🔍 Searching for videos published after: ${publishedAfter}`);
 
   // Step 1: Fetch all search results in parallel
   const allSearchResults = await Promise.all(
-    SEARCH_QUERIES.map((q) => {
+    queries.map((q) => {
       console.log(`   → Query: "${q}"`);
       return searchVideos(q, publishedAfter);
     })
   );
 
-  // Step 2: Flatten all results into a single array
+  // Step 2: Flatten and deduplicate
   const flatResults = allSearchResults.flat();
-
-  // Step 3: Deduplicate by videoId
   const seen = new Set();
   const uniqueVideos = flatResults.filter((item) => {
     if (!item.id || !item.id.videoId) return false;
@@ -95,11 +77,8 @@ async function getTopAIVideos() {
     seen.add(id);
     return true;
   });
-  console.log(
-    `✅ Found ${flatResults.length} total results → ${uniqueVideos.length} unique videos after dedup`
-  );
 
-  // Step 4: Fetch statistics for all unique videos (in batches of 50)
+  // Step 3: Fetch Stats
   const videoIds = uniqueVideos.map((v) => v.id.videoId);
   const batchSize = 50;
   const statsBatches = [];
@@ -109,7 +88,7 @@ async function getTopAIVideos() {
     statsBatches.push(...stats);
   }
 
-  // Step 5: Build enriched video objects with viewCount
+  // Step 4: Build enriched objects
   const enriched = statsBatches.map((item) => {
     const viewCount = parseInt(item.statistics?.viewCount || "0", 10);
     return {
@@ -123,13 +102,10 @@ async function getTopAIVideos() {
     };
   });
 
-  // Step 6: Sort by viewCount descending and take top 15
-  const top15 = enriched
+  // Step 5: Sort and slice
+  return enriched
     .sort((a, b) => b.viewCount - a.viewCount)
-    .slice(0, 15);
-
-  console.log(`🏆 Top 15 videos by view count selected.`);
-  return top15;
+    .slice(0, maxResults);
 }
 
 module.exports = { getTopAIVideos };

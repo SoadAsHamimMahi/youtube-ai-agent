@@ -6,11 +6,17 @@
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["youtube", "ai", "monitoring", "automation"],
+  "keywords": [
+    "youtube",
+    "ai",
+    "monitoring",
+    "automation"
+  ],
   "author": "",
   "license": "ISC",
   "description": "YouTube AI Monitoring Agent - Fetches top AI videos daily and sends email reports",
   "dependencies": {
+    "@supabase/supabase-js": "^2.100.0",
     "axios": "^1.13.6",
     "dotenv": "^17.3.1",
     "nodemailer": "^8.0.3"
