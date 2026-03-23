@@ -18,13 +18,40 @@ async function runAgent(agent) {
 
     if (!videos || videos.length === 0) {
       console.log(`   ⚠️ No videos found for "${agent.title}". Skipping.`);
+      // Still update success since the search itself didn't fail
+      await supabase
+        .from("monitoring_configs")
+        .update({ 
+          last_run_at: new Date().toISOString(),
+          last_run_status: 'success' 
+        })
+        .eq("id", agent.id);
       return;
     }
 
     await sendEmail(videos, agent.recipient_email, agent.title);
+    
+    // Update Supabase with success
+    await supabase
+      .from("monitoring_configs")
+      .update({ 
+        last_run_at: new Date().toISOString(),
+        last_run_status: 'success' 
+      })
+      .eq("id", agent.id);
+
     console.log(`   ✅ Agent "${agent.title}" complete.`);
   } catch (error) {
     console.error(`   ❌ Error processing agent "${agent.title}":`, error.message);
+    
+    // Update Supabase with error
+    await supabase
+      .from("monitoring_configs")
+      .update({ 
+        last_run_at: new Date().toISOString(),
+        last_run_status: 'error' 
+      })
+      .eq("id", agent.id);
   }
 }
 
