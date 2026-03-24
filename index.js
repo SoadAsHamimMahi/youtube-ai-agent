@@ -22,19 +22,22 @@ function shouldAgentRunNow(agent) {
   try {
     const tz = agent.timezone || "Asia/Dhaka";
     
-    // Get current time in agent's timezone
-    const nowLocal = new Date().toLocaleString("en-US", { timeZone: tz });
-    const localHour = new Date(nowLocal).getHours();
+    // Get current hour in agent's timezone purely via Intl
+    const localHour = parseInt(new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: tz
+    }).format(new Date()), 10);
     
-    // Extract hour from preferred_time (e.g., "04:20:00" -> 4)
+    // Extract hour from preferred_time (e.g., "17:00:00" -> 17)
     const preferredHour = parseInt(agent.preferred_time.split(":")[0], 10);
     
-    console.log(`   🕒 Time Check [${agent.title}]: Current Local Hour: ${localHour}, Preferred: ${preferredHour} (${tz})`);
+    console.log(`   🕒 Time Check [${agent.title}]: Current Local Hour: ${localHour}, Preferred Goal: ${preferredHour} (${tz})`);
     
     return localHour === preferredHour;
   } catch (e) {
-    console.error(`   ❌ Timezone error for ${agent.title}:`, e.message);
-    return true; // Fallback to run if timezone is invalid
+    console.error(`   ❌ Timezone logic error for ${agent.title}:`, e.message);
+    return true; 
   }
 }
 
@@ -94,8 +97,10 @@ async function main() {
       .eq("is_active", true);
 
     if (error) throw error;
+    console.log(`📊 Total Active Agents fetched from DB: ${agents?.length || 0}`);
+
     if (!agents || agents.length === 0) {
-      console.log("ℹ️ No active agents found.");
+      console.log("ℹ️ No active agents found in database query.");
       return;
     }
 
