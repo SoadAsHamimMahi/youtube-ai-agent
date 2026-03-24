@@ -4,10 +4,11 @@ const { getTopAIVideos } = require("./services/youtube");
 const { sendEmail } = require("./services/mail");
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Use Service Role Key if available to bypass RLS, otherwise fallback to Anon key for backward compatibility
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error("❌ Fatal Error: Supabase credentials missing (SUPABASE_URL or SUPABASE_ANON_KEY)");
+  console.error("❌ Fatal Error: Supabase credentials missing (SUPABASE_URL or SUPABASE_KEY)");
   process.exit(1);
 }
 
