@@ -21,23 +21,46 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 function shouldAgentRunNow(agent) {
   try {
     const tz = agent.timezone || "Asia/Dhaka";
+    const now = new Date();
     
-    // Get current hour in agent's timezone purely via Intl
-    const localHour = parseInt(new Intl.DateTimeFormat('en-US', {
+    // Check if it already ran today (within the last 20 hours)
+    if (agent.last_run_at) {
+      const lastRun = new Date(agent.last_run_at);
+      const hoursSinceLastRun = (now - lastRun) / (1000 * 60 * 60);
+      if (hoursSinceLastRun < 20) {
+        console.log(`   ⏭️ Already ran today [${agent.title}] (${Math.round(hoursSinceLastRun)}h ago). Skipping.`);
+        return false;
+      }
+    }
+
+    // Get current hour and minute in agent's timezone
+    const formatter = new Intl.DateTimeFormat('en-US', {
       hour: 'numeric',
+      minute: 'numeric',
       hour12: false,
       timeZone: tz
-    }).format(new Date()), 10);
+    });
     
-    // Extract hour from preferred_time (e.g., "17:00:00" -> 17)
-    const preferredHour = parseInt(agent.preferred_time.split(":")[0], 10);
+    const parts = formatter.formatToParts(now);
+    const localHour = parseInt(parts.find(p => p.type === 'hour').value, 10);
+    const localMinute = parseInt(parts.find(p => p.type === 'minute').value, 10);
     
-    console.log(`   🕒 Time Check [${agent.title}]: Current Local Hour: ${localHour}, Preferred Goal: ${preferredHour} (${tz})`);
+    // Extract preferred hour and minute (e.g., "17:30:00")
+    const [prefH, prefM] = agent.preferred_time.split(":");
+    const preferredHour = parseInt(prefH, 10);
+    const preferredMinute = parseInt(prefM, 10);
     
-    return localHour === preferredHour;
+    console.log(`   🕒 Time Check [${agent.title}]: Local: ${localHour}:${localMinute}, Goal: ${preferredHour}:${preferredMinute} (${tz})`);
+    
+    // Check for an exact hour match and a "close enough" minute match (within 5 mins)
+    // This allows for slight GitHub Action delays while still being precise.
+    const isCorrectHour = localHour === preferredHour;
+    const isCorrectMinute = Math.abs(localMinute - preferredMinute) <= 5;
+    
+    return isCorrectHour && isCorrectMinute;
   } catch (e) {
     console.error(`   ❌ Timezone logic error for ${agent.title}:`, e.message);
-    return true; 
+    return false; 
   }
 }
 
@@ -87,7 +110,8 @@ async function runAgent(agent) {
 }
 
 async function main() {
-  console.log("🚀 YouTube AI SaaS — Starting Hourly Monitor Run...");
+  console.log("🚀 YouTube AI SaaS — Starting Monitor Scan...");
+  console.log(`🕒 System Time: ${new Date().toISOString()}`);
   console.log("=".repeat(50));
 
   try {

@@ -2,8 +2,8 @@ name: YouTube AI Monitor — Daily Report
 
 on:
   schedule:
-    # Run every hour
-    - cron: "0 * * * *"
+    # Run every 10 minutes for higher precision
+    - cron: "*/10 * * * *"
   workflow_dispatch: # Allow manual trigger from GitHub UI
 
 jobs:
