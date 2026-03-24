@@ -23,12 +23,16 @@ function shouldAgentRunNow(agent) {
     const tz = agent.timezone || "Asia/Dhaka";
     const now = new Date();
     
-    // Check if it already ran today (within the last 20 hours)
-    if (agent.last_run_at) {
+    // Skip the "Already ran" check if this is a manual trigger (Force run)
+    const isManual = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' || process.env.FORCE_RUN === 'true';
+
+    if (!isManual && agent.last_run_at) {
       const lastRun = new Date(agent.last_run_at);
       const hoursSinceLastRun = (now - lastRun) / (1000 * 60 * 60);
-      if (hoursSinceLastRun < 20) {
-        console.log(`   ⏭️ Already ran today [${agent.title}] (${Math.round(hoursSinceLastRun)}h ago). Skipping.`);
+      
+      // If it already ran successfully in the last 18 hours, we skip to avoid double-mailing
+      if (hoursSinceLastRun < 18) {
+        console.log(`   ⏭️ Already sent an email for today [${agent.title}] (${Math.round(hoursSinceLastRun)}h ago). Skipping.`);
         return false;
       }
     }
