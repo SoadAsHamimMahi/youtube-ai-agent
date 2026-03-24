@@ -3,10 +3,15 @@ const { createClient } = require("@supabase/supabase-js");
 const { getTopAIVideos } = require("./services/youtube");
 const { sendEmail } = require("./services/mail");
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error("❌ Fatal Error: Supabase credentials missing (SUPABASE_URL or SUPABASE_ANON_KEY)");
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
  * Checks if the agent should run in the current hour.
@@ -45,10 +50,11 @@ async function runAgent(agent) {
   }
 
   console.log(`   📧 Target: ${agent.recipient_email}`);
-  console.log(`   🏷️ Queries: ${agent.queries.join(", ")}`);
+  const queries = agent.queries || [];
+  console.log(`   🏷️ Queries: ${queries.join(", ")}`);
 
   try {
-    const videos = await getTopAIVideos(agent.queries, agent.max_videos || 10);
+    const videos = await getTopAIVideos(queries, agent.max_videos || 10);
 
     if (!videos || videos.length === 0) {
       console.log(`   ⚠️ No videos found for "${agent.title}". Skipping email.`);
